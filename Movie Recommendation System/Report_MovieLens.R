@@ -1,4 +1,4 @@
-# Project: MovieLens Project Report - Building Movie Recommendation System
+# Project: MovieLens Project Report - Building a Movie Recommendation System
 # Name: Han Lu
 # Date: 6/6/2020
 
@@ -6,13 +6,16 @@
 # Create edx set, validation set
 ################################
 
-if(!require(ggthemes)) install.packages("ggthemes", repos = "http://cran.us.r-project.org")
-
-# Note: this process could take a couple of minutes
+# Import packages
 
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(ggthemes)) install.packages("ggthemes", repos = "http://cran.us.r-project.org")
+if(!require(lubridate)) install.packages("lubridate", repos = "http://cran.us.r-project.org")
+if(!require(scales)) install.packages("scales", repos = "http://cran.us.r-project.org")
+
+# Note: this process could take a couple of minutes
 
 # MovieLens 10M dataset:
 # https://grouplens.org/datasets/movielens/10m/
@@ -56,7 +59,6 @@ rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
 ################ Split edx into Train, Test ###################
 
-
 set.seed(1, sample.kind="Rounding")
 test_index <- createDataPartition(y = edx$rating, times = 1, p = 0.1, list = FALSE)
 train <- edx[-test_index,]
@@ -84,7 +86,6 @@ summary(edx)
 
 # Summarize date
 
-library(lubridate)
 tibble('Start Date' = date(as_datetime(min(edx$timestamp), origin="1970-01-01")),
        'End Date' = date(as_datetime(max(edx$timestamp), origin="1970-01-01"))) %>%
   mutate(Span = duration(max(edx$timestamp)-min(edx$timestamp)))
@@ -98,11 +99,6 @@ length(unique(edx$userId))
 length(unique(edx$movieId))
 
 # Graph - Distribution of movies
-
-if(!require(scales)) 
-  install.packages("scales", repos = "http://cran.us.r-project.org")
-if(!require(ggthemes)) 
-  install.packages("ggthemes", repos = "http://cran.us.r-project.org")
 
 edx %>% group_by(movieId) %>%
   summarise(n=n()) %>%
@@ -388,3 +384,8 @@ validation %>%
   group_by(title) %>% 
   select(title) %>%
   head(10)
+
+
+###########
+# The End
+###########

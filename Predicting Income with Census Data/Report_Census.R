@@ -1,47 +1,23 @@
----
-title: "Predicting Income with Census Data"
-author: "Han Lu"
-date: "6/16/2020"
-output:
-  pdf_document: default
-  html_document: default
----
+# Project: Predicting Income with Census Data
+# Name: Han Lu
+# Date: 6/16/2020
 
-```{r global_options, include=FALSE}
-library(tidyverse)
-library(caret)
-library(data.table)
-library(gridExtra)
-library(rpart)
-library(caret)
-library(randomForest)
-library(tinytex)
-knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
-```
 
-## I. Introduction
-The goal of this project is to predict an individual's income level with machine learning models using the 14 attributes provided by the census income dataset. Specifically, I implement classification tree and random forest algorithmns to predict whether a person's annual income is more than $50,000.
+########################################
+# Install packages and import libraries
+########################################
 
-The "Census Income" dataset, also know as the "Adult" dataset, was extracted by Barry Becker from the 1994 US Census database for a prediction task on income level. The dataset consists of 48,842 observations and 15 variables, six numerical and nine categorical, and is archived at the UC Irvine Machine Learning Repository. The following is a list of variable names by their types.
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(gridExtra)) install.packages("gridExtra", repos = "http://cran.us.r-project.org")
+if(!require(rpart)) install.packages("rpart", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("randomForest", repos = "http://cran.us.r-project.org")
 
-|Categorical Variable  |Numerical Variable  |      
-|----------------------|--------------------|
-|income                |age                 |
-|workclass             |fnlwgt              |
-|education             |education.num       |
-|occupation            |capital.gain        |
-|marital.status        |capital.loss        |
-|relationship          |hours.per.week      |
-|race                  |                    |
-|sex                   |                    |
-|native.country        |                    |
-
-The ```income``` variable identifies whether a person makes over $50,000 annually, and is used as the dependent variable. The dataset is divided into a ```train``` set with 32,561 observations, and a ```test``` set with 16,281 observations. After removing the missing values denoted by question marks, there are 45,222 rows left in the dataset with 30,162 rows in the ```train``` set, and 15,060 rows in the ```test``` set.
-
-The variable names are mostly self-explanatory with a few exceptions. The variable ```education``` is a categorical representation of the numerical ```education.num```, which stands for the number of years of education. The variable ```relationship``` indicates the respondant's role in the family. The variable ```fnlwgt``` specifies the final weight, which is the number of people the census believes the entry represents. Gain and loss from investments are stored in ```capital.gain``` and ```capital.loss```. The variable ```hours.per.week``` indicates the number of working hours per week. 
-
-```{r prepare, echo = TRUE}
-# Download the Adult Dataset (Census Income Dataset)
+########################################
+# Create adult set, train set, test set
+########################################
 
 # Census Income Data Set:
 # https://archive.ics.uci.edu/ml/datasets/Adult
@@ -57,7 +33,7 @@ test <- read.table(textConnection(test), sep = ',', stringsAsFactors = FALSE)
 names <- readLines(url_names)[97:110]
 names <- as.character(lapply(strsplit(names,':'), function(x) x[1])) 
 names <- c(names, 'income')
-colnames(train) <- names
+colnames(train) <- names 
 colnames(test) <- names
 
 # Remove the missing values (denoted by question marks)
@@ -78,23 +54,14 @@ adult <- rbind(train, test)
 
 adult$income <- gsub(".", "", as.character(adult$income), fixed = TRUE)
 
-str(adult)
-```
 
-```{r train, echo = TRUE}
-dim(train)
-```
+###################
+# Data exploration
+###################
 
-```{r test, echo = TRUE}
-dim(test)
-```
-
-## II. Analysis
-### 2.1 Data Exploration
-From the histograms of the numerical variables, I find that the distributions of ```capital.gain``` and ```capital.loss``` are very narrow and concentrated at zero. The zeros constitute 91.61912% of ```capital.gain``` entries and 95.26779% of ```capital.loss``` entries. In the modeling section, I combine these two columns into a single variable called ```capital.change``` for a more efficient representation.
-
-```{r numeric, echo = TRUE}
-# Visualize numerical variables
+# ----------------------------
+# Explore numerical variables 
+# ----------------------------
 
 # Histogram of Age
 
@@ -145,23 +112,19 @@ p6 <- ggplot(adult, aes(x = log10(capital.loss+1))) +
   theme_minimal()
 
 grid.arrange(p1,p2,p3,p4,p5,p6)
-```
 
-```{r gain, echo = TRUE}
 # Percentage of data with zero capital gain
 
 sum(adult$capital.gain==0)/length(adult$capital.gain)*100
-```
 
-```{r loss, echo = TRUE}
 # Percentage of data with zero capital loss
 
 sum(adult$capital.loss==0)/length(adult$capital.loss)*100
-```
 
-The histograms of the categorical variables are plotted as follows.
+# -----------------------------
+# Explore categorical variables 
+# -----------------------------
 
-```{r categorical, echo = TRUE}
 # Sort categorical variables in descending order
 
 sort.categ <- function(x){reorder(x,x,function(y){length(y)})}
@@ -249,22 +212,12 @@ c8 <- ggplot(adult, aes(y = native.country)) +
   ylab("Native Country") +
   theme_minimal()
 
-grid.arrange(c1,c2,c3,c4,c5,c6,c7)
-```
+grid.arrange(c1,c2,c3,c4,c5,c6)
 
-```{r hist.country, echo = TRUE}
-c8
-```
+# -------------------------------------
+# Numerical variables and income levels
+# -------------------------------------
 
-The variable ```native.country``` shows a narrow distribution with 91.30954% of the respondents coming from the Unites States.
-
-```{r native, echo = TRUE}
-summary(adult$native.country)
-```
-
-To identify the potential variable that impacts the income level, I plot the attributes against income to examine correlations. The boxplots shows that the numeric variables ```age```, ```education```, and ```hours.per.week``` are correlatted with income. 
-
-```{r boxplot, echo = TRUE}
 # Final weight and income
 
 b1 <- ggplot(adult, aes(income, log(fnlwgt))) +
@@ -298,11 +251,10 @@ b4 <- ggplot(adult, aes(income, hours.per.week)) +
   theme_minimal()
   
 grid.arrange(b1, b2, b3, b4)
-```
 
-I use bar charts to show the correlation between categorical variables and income.
-
-```{r workclass, echo = TRUE}
+# ---------------------------------------
+# Categorical variables and income levels
+# ---------------------------------------
 
 # Work class and income
 
@@ -313,9 +265,7 @@ ggplot(adult, aes(y = workclass, fill = income)) +
   xlab("Percentage") +
   ylab("Work Class") +
   theme_minimal()
-```
 
-```{r occupation, echo = TRUE}
 # Occupation and income
 
 ggplot(adult, aes(y = occupation, fill = income)) + 
@@ -325,9 +275,7 @@ ggplot(adult, aes(y = occupation, fill = income)) +
   xlab("Percentage") +
   ylab("Occupation") +
   theme_minimal()
-```
 
-```{r education, echo = TRUE}
 # Education and income
 
 ggplot(adult, aes(y = education, fill = income)) + 
@@ -337,9 +285,7 @@ ggplot(adult, aes(y = education, fill = income)) +
   xlab("Percentage") +
   ylab("Education") +
   theme_minimal()
-```
 
-```{r marriage, echo = TRUE}
 # Marital status and income
 
 ggplot(adult, aes(y = marital.status, fill = income)) + 
@@ -349,9 +295,7 @@ ggplot(adult, aes(y = marital.status, fill = income)) +
   xlab("Percentage") +
   ylab("Marital Status") +
   theme_minimal()
-```
 
-```{r relationship, echo = TRUE}
 # Relationship and income
 
 ggplot(adult, aes(y = relationship, fill = income)) + 
@@ -361,9 +305,7 @@ ggplot(adult, aes(y = relationship, fill = income)) +
   xlab("Percentage") +
   ylab("Relationship") +
   theme_minimal()
-```
 
-```{r race, echo = TRUE}
 # Race and income
 
 ggplot(adult, aes(y = race, fill = income)) + 
@@ -373,9 +315,7 @@ ggplot(adult, aes(y = race, fill = income)) +
   xlab("Percentage") +
   ylab("Race") +
   theme_minimal()
-```
 
-```{r sex, echo = TRUE}
 # Sex and income
 
 ggplot(adult, aes(y = sex, fill = income)) + 
@@ -385,14 +325,17 @@ ggplot(adult, aes(y = sex, fill = income)) +
   xlab("Percentage") +
   ylab("Sex") +
   theme_minimal()
-```
 
-As we see from the above graphs, all categorical variables shows influence on income level.
 
-### 2.2 Data Cleaning
-In this section, I clean the dataset for modeling.
+######################
+# Supervised Learning
+######################
 
-```{r cleaning, echo = TRUE}
+# --------------
+# Data cleaning 
+# --------------
+
+
 # Combine capital.gain and capital.loss into a single capital.change variable in train and test set
 
 train$capital.change <- train$capital.gain - train$capital.loss
@@ -425,33 +368,30 @@ test$native.country <- NULL
 
 train$income <- as.factor(ifelse(train$income == ' <=50K', 0, 1))
 test$income <- as.factor(ifelse(test$income == ' <=50K.', 0, 1))
-```
 
-### 2.3 Classification Tree
-In the classification tree model, we achieve the prediction accuracy of 83.89774%.
-```{r tree, echo = TRUE}
+# --------------------
+# Classification Tree 
+# --------------------
+
 set.seed(1, sample.kind = "Rounding")
 tree <- rpart(income ~ ., data = train, method = 'class')
 tree.hat <- predict(tree, newdata = test, type = 'class')
 confusionMatrix(tree.hat, test$income)$overall["Accuracy"]
-```
 
-### 2.3 Random Forest
-With the random forest model, we achieve the OOB error rate of 13.92% and prediction accuracy of 85.73705%.
-```{r forest, echo = TRUE}
+# ---------------
+# Random Forrest
+# ---------------
+
 set.seed(1, sample.kind="Rounding")
 forest <- randomForest(train$income ~ ., data = train, mtry = sqrt(10), importance = TRUE) 
 forest
-```
 
-```{r accuracy, echo = TRUE}
 forest.hat <- predict(forest, newdata = test, type = "class") 
 confusionMatrix(forest.hat, test$income)$overall["Accuracy"]
-```
 
-```{r importance, echo = TRUE}
 varImpPlot(forest, type = 2, main = "Variable Importance Plot")
-```
 
-## III. Conclusion
-In this project, I built classification tree and random forest models to predict a person's income level with the Census Income dataset. The randome forest model achieved the accuracy of 85.73705%, higher than the 83.89774% accuracy provided by the initial classification tree model. The future work would focus on building other machine learning models such as logistic regression, KNN, naive Bayes, and neural network to increase the accuracy and predictive power.
+
+###########
+# The End
+###########
